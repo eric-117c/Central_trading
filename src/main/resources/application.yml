@@ -1,0 +1,42 @@
+server:
+  port: ${PORT:8082}
+
+spring:
+  application:
+    name: central-trading
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_DATABASE:central_trading}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_GROUP_ID:central-trading-group}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      client-id: ${KAFKA_CLIENT_ID:central-trading}
+
+app:
+  kafka:
+    enabled: ${KAFKA_ENABLED:false}
+  account:
+    api-base: ${ACCOUNT_API_BASE:http://localhost:8080}
+    mock: ${ACCOUNT_API_MOCK:true}
+  trading:
+    start-hour: ${TRADING_START_HOUR:9}
+    start-minute: ${TRADING_START_MINUTE:30}
+    end-hour: ${TRADING_END_HOUR:15}
+    end-minute: ${TRADING_END_MINUTE:0}
