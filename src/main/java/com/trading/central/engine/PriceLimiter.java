@@ -139,6 +139,13 @@ public class PriceLimiter {
         log.info("涨跌停幅度已更新: {} = {}%", stockType, newRate.multiply(new BigDecimal("100")).setScale(1, RoundingMode.HALF_UP));
     }
 
+    /**
+     * 直接存入涨跌停缓存（供测试用，绕过数据库查询）。
+     */
+    void putLimits(String stockCode, Limits limits) {
+        limitsCache.put(stockCode, limits);
+    }
+
     private BigDecimal roundPrice(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP);
     }

@@ -130,9 +130,16 @@ public class OrderService {
         orderEntry.setEntryTime(entryTime);
 
         try {
-            MatchingEngine.MatchResult result = matchingEngine.matchOrder(orderEntry, tradeService::executeTrade);
-            if (result.trades.isEmpty()) {
-                log.info("[OrderService] {} 无匹配对手方，已挂单等待", msg.getOrderId());
+            if (matchingEngine.getCurrentPhase() == MatchingEngine.AuctionPhase.CALL_AUCTION) {
+                // 集合竞价阶段：只收集订单，不立即撮合
+                matchingEngine.addToCallAuction(orderEntry);
+                log.info("[OrderService] {} 已加入集合竞价池（{}）", msg.getOrderId(), msg.getStockCode());
+            } else {
+                // 连续竞价阶段：立即撮合
+                MatchingEngine.MatchResult result = matchingEngine.matchOrder(orderEntry, tradeService::executeTrade);
+                if (result.trades.isEmpty()) {
+                    log.info("[OrderService] {} 无匹配对手方，已挂单等待", msg.getOrderId());
+                }
             }
         } catch (Exception e) {
             log.error("[OrderService] 撮合异常", e);

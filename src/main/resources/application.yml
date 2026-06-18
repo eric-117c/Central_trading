@@ -40,3 +40,5 @@ app:
     start-minute: ${TRADING_START_MINUTE:30}
     end-hour: ${TRADING_END_HOUR:15}
     end-minute: ${TRADING_END_MINUTE:0}
+    call-auction-hour: ${CALL_AUCTION_HOUR:9}
+    call-auction-minute: ${CALL_AUCTION_MINUTE:25}
