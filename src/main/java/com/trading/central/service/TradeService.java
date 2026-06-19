@@ -82,6 +82,8 @@ public class TradeService {
         tradeMsg.setTradePrice(tradePrice);
         tradeMsg.setTradeQuantity(tradeQty);
         tradeMsg.setTradeTime(tradeTime);
+        tradeMsg.setBuyerName(accountService.getAccountName(buyOrder.getAccountId()));
+        tradeMsg.setSellerName(accountService.getAccountName(sellOrder.getAccountId()));
         kafkaProducerService.sendTradeReport(tradeMsg);
 
         // 7. 发送订单状态更新

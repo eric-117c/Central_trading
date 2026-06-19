@@ -31,7 +31,7 @@ spring:
 
 app:
   kafka:
-    enabled: ${KAFKA_ENABLED:false}
+    enabled: ${KAFKA_ENABLED:true}
   account:
     api-base: ${ACCOUNT_API_BASE:http://localhost:8080}
     mock: ${ACCOUNT_API_MOCK:true}
