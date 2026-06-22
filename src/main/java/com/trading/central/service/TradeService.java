@@ -1,5 +1,6 @@
 package com.trading.central.service;
 
+import com.trading.central.dashboard.TradingEventBroadcaster;
 import com.trading.central.model.OrderEntry;
 import com.trading.central.model.TradeReportMsg;
 import com.trading.central.model.StockQuoteMsg;
@@ -22,14 +23,28 @@ public class TradeService {
     private final AccountService accountService;
     private final StockService stockService;
     private final KafkaProducerService kafkaProducerService;
+    private final TradingEventBroadcaster broadcaster;
 
-    private int tradeSeq = 0;
+    private int tradeSeq;
 
-    public TradeService(JdbcTemplate jdbcTemplate, AccountService accountService, StockService stockService, KafkaProducerService kafkaProducerService) {
+    public TradeService(JdbcTemplate jdbcTemplate, AccountService accountService, StockService stockService, KafkaProducerService kafkaProducerService, TradingEventBroadcaster broadcaster) {
         this.jdbcTemplate = jdbcTemplate;
         this.accountService = accountService;
         this.stockService = stockService;
         this.kafkaProducerService = kafkaProducerService;
+        this.broadcaster = broadcaster;
+
+        String dateStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String prefix = "T" + dateStr;
+        try {
+            Integer maxSeq = jdbcTemplate.queryForObject(
+                "SELECT MAX(CAST(SUBSTRING(trade_no, 10) AS UNSIGNED)) FROM trade_record WHERE trade_no LIKE ?",
+                Integer.class, prefix + "%");
+            this.tradeSeq = maxSeq != null ? maxSeq : 0;
+        } catch (Exception e) {
+            this.tradeSeq = 0;
+        }
+        log.info("[TradeService] 初始化 tradeSeq={}", this.tradeSeq);
     }
 
     private synchronized String generateTradeNo() {
@@ -82,6 +97,8 @@ public class TradeService {
         tradeMsg.setTradePrice(tradePrice);
         tradeMsg.setTradeQuantity(tradeQty);
         tradeMsg.setTradeTime(tradeTime);
+        tradeMsg.setBuyerName(accountService.getAccountName(buyOrder.getAccountId()));
+        tradeMsg.setSellerName(accountService.getAccountName(sellOrder.getAccountId()));
         kafkaProducerService.sendTradeReport(tradeMsg);
 
         // 7. 发送订单状态更新
@@ -95,6 +112,10 @@ public class TradeService {
         pushLatestQuote(buyOrder.getStockCode(), tradePrice);
 
         log.info("[TradeService] 成交完成: {} {} {}x{} 买方={} 卖方={}", tradeNo, buyOrder.getStockCode(), tradePrice, tradeQty, buyOrder.getOrderId(), sellOrder.getOrderId());
+        broadcaster.match(buyOrder.getStockCode(),
+                tradePrice.toPlainString(), String.valueOf(tradeQty),
+                buyOrder.getAccountId(), sellOrder.getAccountId(),
+                "成交完成 " + tradeNo);
     }
 
     private void updateOrderInDb(OrderEntry order) {

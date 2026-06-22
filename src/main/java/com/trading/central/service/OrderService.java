@@ -1,5 +1,6 @@
 package com.trading.central.service;
 
+import com.trading.central.dashboard.TradingEventBroadcaster;
 import com.trading.central.engine.MatchingEngine;
 import com.trading.central.engine.PriceLimiter;
 import com.trading.central.kafka.KafkaProducerService;
@@ -37,8 +38,9 @@ public class OrderService {
     private final StockService stockService;
     private final AccountService accountService;
     private final KafkaProducerService kafkaProducerService;
+    private final TradingEventBroadcaster broadcaster;
 
-    public OrderService(JdbcTemplate jdbcTemplate, MatchingEngine matchingEngine, PriceLimiter priceLimiter, TradeService tradeService, StockService stockService, AccountService accountService, KafkaProducerService kafkaProducerService) {
+    public OrderService(JdbcTemplate jdbcTemplate, MatchingEngine matchingEngine, PriceLimiter priceLimiter, TradeService tradeService, StockService stockService, AccountService accountService, KafkaProducerService kafkaProducerService, TradingEventBroadcaster broadcaster) {
         this.jdbcTemplate = jdbcTemplate;
         this.matchingEngine = matchingEngine;
         this.priceLimiter = priceLimiter;
@@ -46,6 +48,7 @@ public class OrderService {
         this.stockService = stockService;
         this.accountService = accountService;
         this.kafkaProducerService = kafkaProducerService;
+        this.broadcaster = broadcaster;
     }
 
     public void receiveOrder(OrderCommandMsg msg) {
@@ -129,13 +132,15 @@ public class OrderService {
         orderEntry.setStatus(OrderStatus.ACCEPTED.name());
         orderEntry.setEntryTime(entryTime);
 
+        broadcaster.order(msg.getStockCode(), msg.getOrderId(), msg.getAccountId(),
+                msg.getSide(), msg.getPrice().toPlainString(), String.valueOf(msg.getQuantity()),
+                "委托已受理");
+
         try {
             if (matchingEngine.getCurrentPhase() == MatchingEngine.AuctionPhase.CALL_AUCTION) {
-                // 集合竞价阶段：只收集订单，不立即撮合
                 matchingEngine.addToCallAuction(orderEntry);
-                log.info("[OrderService] {} 已加入集合竞价池（{}）", msg.getOrderId(), msg.getStockCode());
+                log.info("[OrderService]  已加入集合竞价池（{}）", msg.getOrderId(), msg.getStockCode());
             } else {
-                // 连续竞价阶段：立即撮合
                 MatchingEngine.MatchResult result = matchingEngine.matchOrder(orderEntry, tradeService::executeTrade);
                 if (result.trades.isEmpty()) {
                     log.info("[OrderService] {} 无匹配对手方，已挂单等待", msg.getOrderId());
@@ -189,6 +194,7 @@ public class OrderService {
 
         kafkaProducerService.sendOrderReport(msg.getOrderId(), OrderStatus.CANCELED.name(), "用户撤单成功");
         log.info("[OrderService] 撤单成功: {}", msg.getOrderId());
+        broadcaster.cancel(order.get("stock_code").toString(), msg.getOrderId(), msg.getAccountId(), "用户撤单成功");
     }
 
     public void handleStockQuery(StockQueryMsg msg) {

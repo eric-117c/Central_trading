@@ -36,11 +36,11 @@ public class AccountService {
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, body, Map.class);
             if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("[AccountService] {} 失败: {}", path, response.getStatusCode());
+                log.error("[AccountService] {} failed: {}", path, response.getStatusCode());
                 throw new RuntimeException("Account API error: " + response.getStatusCode());
             }
         } catch (Exception e) {
-            log.error("[AccountService] {} 调用异常: {}", path, e.getMessage());
+            log.error("[AccountService] {} call error: {}", path, e.getMessage());
             throw new RuntimeException("Account API call failed", e);
         }
     }
@@ -111,5 +111,30 @@ public class AccountService {
         body.put("delta_security_a", quantity);
         body.put("delta_security_f", -quantity);
         callAccountApi("/api/security-accounts/updateHolding", body);
+    }
+
+    public String getAccountName(String accountId) {
+        if (isMock) {
+            String suffix = accountId.length() >= 4 ? accountId.substring(accountId.length() - 4) : accountId;
+            return "user" + suffix;
+        }
+
+        String url = apiBase + "/api/fund-accounts/" + accountId + "/name";
+        try {
+            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Object name = response.getBody().get("accountName");
+                if (name != null) {
+                    return name.toString();
+                }
+                Object realName = response.getBody().get("realName");
+                if (realName != null) {
+                    return realName.toString();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[AccountService] get account name failed: {}, using default", accountId, e);
+        }
+        return "user" + (accountId.length() >= 4 ? accountId.substring(accountId.length() - 4) : accountId);
     }
 }

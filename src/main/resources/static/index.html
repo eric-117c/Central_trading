@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易日志监控</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        header {
+            background: #16213e;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #0f3460;
+        }
+        header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #e94560;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e74c3c;
+        }
+        .status-dot.connected { background: #2ecc71; }
+        .controls {
+            background: #16213e;
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #0f3460;
+        }
+        .controls input[type="text"] {
+            background: #0a1628;
+            color: #e0e0e0;
+            border: 1px solid #533483;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: inherit;
+            width: 220px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .controls input[type="text"]:focus {
+            border-color: #e94560;
+        }
+        .controls input[type="text"]::placeholder {
+            color: #666;
+        }
+        .controls button {
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid #533483;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .controls button:hover { background: #533483; }
+        .controls button.active { background: #e94560; border-color: #e94560; }
+        .count { font-size: 12px; color: #888; margin-left: auto; }
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        thead {
+            position: sticky;
+            top: 0;
+            background: #16213e;
+            z-index: 1;
+        }
+        th {
+            padding: 8px 12px;
+            text-align: left;
+            color: #888;
+            font-weight: 500;
+            border-bottom: 1px solid #0f3460;
+        }
+        td {
+            padding: 6px 12px;
+            border-bottom: 1px solid #1a1a2e;
+        }
+        tr:hover { background: #16213e; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            min-width: 40px;
+            text-align: center;
+        }
+        .badge-ORDER { background: #1e3a5f; color: #5dade2; }
+        .badge-MATCH { background: #1e4d2b; color: #2ecc71; }
+        .badge-CANCEL { background: #4d3800; color: #f39c12; }
+        .badge-QUOTE { background: #3d1f56; color: #a569bd; }
+        .badge-ERROR { background: #4d1a1a; color: #e74c3c; }
+        .badge-SYSTEM { background: #2d2d2d; color: #95a5a6; }
+        .time { color: #888; white-space: nowrap; }
+        .stock { color: #f39c12; font-weight: 600; }
+        .account { color: #5dade2; }
+        .detail { color: #bbb; }
+        .empty-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #555;
+            font-size: 14px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        tr.new-row { animation: fadeIn 0.3s ease; }
+
+        .order-book-panel {
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+            padding: 12px 20px;
+            min-height: 240px;
+            display: none;
+        }
+        .order-book-panel.visible { display: block; }
+        .order-book-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .order-book-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e94560;
+        }
+        .order-book-header input[type="text"] {
+            background: #0a1628;
+            color: #e0e0e0;
+            border: 1px solid #533483;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: inherit;
+            width: 120px;
+            outline: none;
+        }
+        .order-book-header input[type="text"]:focus {
+            border-color: #e94560;
+        }
+        .order-book-header button {
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid #533483;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .order-book-header button:hover { background: #533483; }
+        .order-book-header .refresh-hint {
+            font-size: 11px;
+            color: #666;
+            margin-left: auto;
+        }
+        .order-book-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .queue-section h3 {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+        .queue-buy h3 { color: #2ecc71; background: #1e4d2b; }
+        .queue-sell h3 { color: #e74c3c; background: #4d1a1a; }
+        .queue-section table {
+            width: 100%;
+            font-size: 12px;
+        }
+        .queue-section th {
+            padding: 4px 8px;
+            font-size: 11px;
+            color: #888;
+            border-bottom: 1px solid #0f3460;
+        }
+        .queue-section td {
+            padding: 3px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .queue-buy td.price { color: #2ecc71; }
+        .queue-sell td.price { color: #e74c3c; }
+        .queue-empty {
+            text-align: center;
+            color: #555;
+            padding: 20px;
+            font-size: 12px;
+        }
+
+        .stock-add-panel {
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+            padding: 12px 20px;
+            display: none;
+        }
+        .stock-add-panel.visible { display: block; }
+        .stock-add-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .stock-add-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e94560;
+        }
+        .stock-add-header .add-status {
+            font-size: 11px;
+            margin-left: auto;
+        }
+        .stock-add-header .add-status.success { color: #2ecc71; }
+        .stock-add-header .add-status.error { color: #e74c3c; }
+        .stock-add-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+            align-items: end;
+        }
+        .stock-add-form .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .stock-add-form label {
+            font-size: 11px;
+            color: #888;
+        }
+        .stock-add-form input,
+        .stock-add-form select {
+            background: #0a1628;
+            color: #e0e0e0;
+            border: 1px solid #533483;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+        }
+        .stock-add-form input:focus,
+        .stock-add-form select:focus {
+            border-color: #e94560;
+        }
+        .stock-add-form select {
+            cursor: pointer;
+        }
+        .stock-add-form .btn-submit {
+            background: #e94560;
+            color: #fff;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            height: 28px;
+            align-self: end;
+        }
+        .stock-add-form .btn-submit:hover { background: #c0392b; }
+        .stock-add-form .btn-submit:disabled { background: #555; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Central Trading - 交易日志实时监控</h1>
+        <div class="status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">未连接</span>
+        </div>
+    </header>
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="搜索订单号 / 用户名..." />
+        <button id="toggleScroll">暂停滚动</button>
+        <button id="clearLog">清空日志</button>
+        <button id="toggleBookBtn">买卖队列</button>
+        <button id="toggleAddStockBtn">股票入库</button>
+        <span class="count" id="count">0 条记录</span>
+    </div>
+    <div class="log-container" id="logContainer">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:180px">时间</th>
+                    <th style="width:60px">类型</th>
+                    <th style="width:80px">股票</th>
+                    <th style="width:50px">方向</th>
+                    <th style="width:80px">价格</th>
+                    <th style="width:60px">数量</th>
+                    <th style="width:120px">买方</th>
+                    <th style="width:120px">卖方</th>
+                    <th>详情</th>
+                </tr>
+            </thead>
+            <tbody id="logBody">
+            </tbody>
+        </table>
+        <div class="empty-state" id="emptyState">等待交易事件...</div>
+    </div>
+
+    <div class="order-book-panel">
+        <div class="order-book-header">
+            <h2>买卖队列</h2>
+            <input type="text" id="bookStockInput" placeholder="股票代码" />
+            <button id="bookQueryBtn">查询</button>
+            <span class="refresh-hint" id="bookStatus"></span>
+        </div>
+        <div class="order-book-grid">
+            <div class="queue-section queue-buy">
+                <h3>买队列 (Bid)</h3>
+                <table>
+                    <thead><tr><th>价格</th><th>数量</th><th>账户</th><th>状态</th></tr></thead>
+                    <tbody id="buyQueueBody"><tr><td colspan="4" class="queue-empty">输入股票代码查询</td></tr></tbody>
+                </table>
+            </div>
+            <div class="queue-section queue-sell">
+                <h3>卖队列 (Ask)</h3>
+                <table>
+                    <thead><tr><th>价格</th><th>数量</th><th>账户</th><th>状态</th></tr></thead>
+                    <tbody id="sellQueueBody"><tr><td colspan="4" class="queue-empty">输入股票代码查询</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="stock-add-panel" id="stockAddPanel">
+        <div class="stock-add-header">
+            <h2>股票入库</h2>
+            <span class="add-status" id="addStockStatus"></span>
+        </div>
+        <div class="stock-add-form">
+            <div class="form-group">
+                <label>股票代码 *</label>
+                <input type="text" id="addStockCode" placeholder="6位数字，如600519" maxlength="6" />
+            </div>
+            <div class="form-group">
+                <label>股票名称 *</label>
+                <input type="text" id="addStockName" placeholder="如：贵州茅台" />
+            </div>
+            <div class="form-group">
+                <label>股票类型</label>
+                <select id="addStockType">
+                    <option value="NORMAL">NORMAL（普通股）</option>
+                    <option value="ST">ST（风险警示）</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>昨日收盘价 *</label>
+                <input type="number" id="addPreviousClose" placeholder="如：100.00" step="0.01" min="0.01" />
+            </div>
+            <div class="form-group">
+                <label>公告信息</label>
+                <input type="text" id="addNotice" placeholder="可选" />
+            </div>
+            <button class="btn-submit" id="addStockSubmit">入库</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script>
+        const MAX_ROWS = 500;
+        let autoScroll = true;
+        let rowCount = 0;
+        let stompClient = null;
+        let searchKeyword = '';
+
+        const logBody = document.getElementById('logBody');
+        const logContainer = document.getElementById('logContainer');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const countEl = document.getElementById('count');
+        const emptyState = document.getElementById('emptyState');
+        const toggleBtn = document.getElementById('toggleScroll');
+        const clearBtn = document.getElementById('clearLog');
+        const searchInput = document.getElementById('searchInput');
+
+        function connect() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null;
+
+            stompClient.connect({}, function() {
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = '已连接';
+
+                stompClient.subscribe('/topic/trading-log', function(message) {
+                    const event = JSON.parse(message.body);
+                    addRow(event);
+                });
+            }, function() {
+                statusDot.className = 'status-dot';
+                statusText.textContent = '已断开，重连中...';
+                setTimeout(connect, 3000);
+            });
+        }
+
+        function addRow(event) {
+            emptyState.style.display = 'none';
+
+            const tr = document.createElement('tr');
+            tr.className = 'new-row';
+
+            const time = event.timestamp ? event.timestamp.substring(0, 23) : '--:--:--';
+            const type = event.type || 'SYSTEM';
+            const label = event.label || type;
+            const stock = event.stockCode || '-';
+            const side = event.side || '-';
+            const price = event.price || '-';
+            const quantity = event.quantity || '-';
+            const buyer = event.buyerAccountId || (event.type === 'ORDER' ? event.accountId : '') || '-';
+            const seller = event.sellerAccountId || '-';
+            const detail = event.detail || '';
+
+            const sideClass = side === 'BUY' ? 'color:#2ecc71' : side === 'SELL' ? 'color:#e74c3c' : '';
+            const sideLabel = side === 'BUY' ? '买' : side === 'SELL' ? '卖' : side;
+
+            tr.innerHTML = `
+                <td class="time">${time}</td>
+                <td><span class="badge badge-${type}">${label}</span></td>
+                <td class="stock">${stock}</td>
+                <td style="${sideClass};font-weight:600">${sideLabel}</td>
+                <td>${price}</td>
+                <td>${quantity}</td>
+                <td class="account">${buyer}</td>
+                <td class="account">${seller}</td>
+                <td class="detail">${detail}</td>
+            `;
+
+            tr.dataset.orderId = (event.orderId || '').toLowerCase();
+            tr.dataset.account = (event.accountId || event.buyerAccountId || '').toLowerCase();
+
+            if (searchKeyword && !matchesSearch(tr)) {
+                tr.style.display = 'none';
+            }
+
+            logBody.appendChild(tr);
+            rowCount++;
+
+            while (logBody.children.length > MAX_ROWS) {
+                logBody.removeChild(logBody.firstChild);
+            }
+
+            countEl.textContent = rowCount + ' 条记录';
+
+            if (autoScroll) {
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        }
+
+        toggleBtn.addEventListener('click', function() {
+            autoScroll = !autoScroll;
+            toggleBtn.textContent = autoScroll ? '暂停滚动' : '恢复滚动';
+            toggleBtn.classList.toggle('active', !autoScroll);
+        });
+
+        clearBtn.addEventListener('click', function() {
+            logBody.innerHTML = '';
+            rowCount = 0;
+            countEl.textContent = '0 条记录';
+            emptyState.style.display = 'flex';
+        });
+
+        function matchesSearch(tr) {
+            return tr.dataset.orderId.includes(searchKeyword) ||
+                   tr.dataset.account.includes(searchKeyword);
+        }
+
+        searchInput.addEventListener('input', function() {
+            searchKeyword = this.value.trim().toLowerCase();
+            const rows = logBody.querySelectorAll('tr');
+            rows.forEach(function(tr) {
+                if (!searchKeyword || matchesSearch(tr)) {
+                    tr.style.display = '';
+                } else {
+                    tr.style.display = 'none';
+                }
+            });
+        });
+
+        // Order Book
+        const bookStockInput = document.getElementById('bookStockInput');
+        const bookQueryBtn = document.getElementById('bookQueryBtn');
+        const bookStatus = document.getElementById('bookStatus');
+        const buyQueueBody = document.getElementById('buyQueueBody');
+        const sellQueueBody = document.getElementById('sellQueueBody');
+        const toggleBookBtn = document.getElementById('toggleBookBtn');
+        const orderBookPanel = document.querySelector('.order-book-panel');
+        let bookRefreshTimer = null;
+
+        toggleBookBtn.addEventListener('click', function() {
+            orderBookPanel.classList.toggle('visible');
+            toggleBookBtn.classList.toggle('active', orderBookPanel.classList.contains('visible'));
+        });
+
+        function renderQueue(tbody, orders, side) {
+            if (!orders || orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="queue-empty">暂无挂单</td></tr>';
+                return;
+            }
+            tbody.innerHTML = orders.map(function(o) {
+                return '<tr>' +
+                    '<td class="price">' + (o.price != null ? Number(o.price).toFixed(2) : '-') + '</td>' +
+                    '<td>' + (o.remainingQuantity || o.quantity || '-') + '</td>' +
+                    '<td class="account">' + (o.accountId || '-') + '</td>' +
+                    '<td>' + (o.status || '-') + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        function queryOrderBook() {
+            const stockCode = bookStockInput.value.trim();
+            if (!stockCode) return;
+
+            bookStatus.textContent = '查询中...';
+            fetch('/api/central-trading/admin/stocks/' + encodeURIComponent(stockCode) + '/orders')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.success && data.data) {
+                        renderQueue(buyQueueBody, data.data.buyOrders, 'buy');
+                        renderQueue(sellQueueBody, data.data.sellOrders, 'sell');
+                        var buyCount = (data.data.buyOrders || []).length;
+                        var sellCount = (data.data.sellOrders || []).length;
+                        bookStatus.textContent = '买 ' + buyCount + ' 笔 / 卖 ' + sellCount + ' 笔（每5秒刷新）';
+                    } else {
+                        buyQueueBody.innerHTML = '<tr><td colspan="4" class="queue-empty">未找到数据</td></tr>';
+                        sellQueueBody.innerHTML = '<tr><td colspan="4" class="queue-empty">未找到数据</td></tr>';
+                        bookStatus.textContent = '无数据';
+                    }
+                })
+                .catch(function(err) {
+                    bookStatus.textContent = '查询失败';
+                    console.error('Order book query error:', err);
+                });
+        }
+
+        bookQueryBtn.addEventListener('click', function() {
+            queryOrderBook();
+            if (bookRefreshTimer) clearInterval(bookRefreshTimer);
+            bookRefreshTimer = setInterval(queryOrderBook, 5000);
+        });
+
+        bookStockInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                bookQueryBtn.click();
+            }
+        });
+
+        // Stock Add Panel
+        const toggleAddStockBtn = document.getElementById('toggleAddStockBtn');
+        const stockAddPanel = document.getElementById('stockAddPanel');
+        const addStockSubmit = document.getElementById('addStockSubmit');
+        const addStockStatus = document.getElementById('addStockStatus');
+
+        toggleAddStockBtn.addEventListener('click', function() {
+            stockAddPanel.classList.toggle('visible');
+            toggleAddStockBtn.classList.toggle('active', stockAddPanel.classList.contains('visible'));
+        });
+
+        addStockSubmit.addEventListener('click', function() {
+            const stockCode = document.getElementById('addStockCode').value.trim();
+            const stockName = document.getElementById('addStockName').value.trim();
+            const stockType = document.getElementById('addStockType').value;
+            const previousClose = document.getElementById('addPreviousClose').value;
+            const notice = document.getElementById('addNotice').value.trim();
+
+            if (!stockCode || !stockName || !previousClose) {
+                addStockStatus.textContent = '请填写必填项（股票代码、名称、昨收价）';
+                addStockStatus.className = 'add-status error';
+                return;
+            }
+
+            if (!/^\d{6}$/.test(stockCode)) {
+                addStockStatus.textContent = '股票代码必须为6位数字';
+                addStockStatus.className = 'add-status error';
+                return;
+            }
+
+            addStockSubmit.disabled = true;
+            addStockStatus.textContent = '提交中...';
+            addStockStatus.className = 'add-status';
+
+            fetch('/api/central-trading/admin/stocks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    stockCode: stockCode,
+                    stockName: stockName,
+                    stockType: stockType,
+                    previousClose: parseFloat(previousClose),
+                    notice: notice
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    addStockStatus.textContent = data.message;
+                    addStockStatus.className = 'add-status success';
+                    document.getElementById('addStockCode').value = '';
+                    document.getElementById('addStockName').value = '';
+                    document.getElementById('addStockType').value = 'NORMAL';
+                    document.getElementById('addPreviousClose').value = '';
+                    document.getElementById('addNotice').value = '';
+                } else {
+                    addStockStatus.textContent = data.message || '入库失败';
+                    addStockStatus.className = 'add-status error';
+                }
+            })
+            .catch(function(err) {
+                addStockStatus.textContent = '请求失败: ' + err.message;
+                addStockStatus.className = 'add-status error';
+            })
+            .finally(function() {
+                addStockSubmit.disabled = false;
+            });
+        });
+
+        connect();
+    </script>
+</body>
+</html>

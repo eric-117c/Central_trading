@@ -16,7 +16,7 @@ spring:
       mode: always
       schema-locations: classpath:schema.sql
   kafka:
-    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BROKERS:10.196.221.31:9092}
     consumer:
       group-id: ${KAFKA_GROUP_ID:central-trading-group}
       auto-offset-reset: earliest
@@ -31,14 +31,14 @@ spring:
 
 app:
   kafka:
-    enabled: ${KAFKA_ENABLED:false}
+    enabled: ${KAFKA_ENABLED:true}
   account:
     api-base: ${ACCOUNT_API_BASE:http://localhost:8080}
     mock: ${ACCOUNT_API_MOCK:true}
   trading:
-    start-hour: ${TRADING_START_HOUR:9}
-    start-minute: ${TRADING_START_MINUTE:30}
-    end-hour: ${TRADING_END_HOUR:15}
-    end-minute: ${TRADING_END_MINUTE:0}
+    start-hour: ${TRADING_START_HOUR:0}
+    start-minute: ${TRADING_START_MINUTE:0}
+    end-hour: ${TRADING_END_HOUR:23}
+    end-minute: ${TRADING_END_MINUTE:59}
     call-auction-hour: ${CALL_AUCTION_HOUR:9}
     call-auction-minute: ${CALL_AUCTION_MINUTE:25}

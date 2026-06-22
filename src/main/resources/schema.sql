@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS trade_price_history (
 -- 初始股票数据（演示用）
 -- ------------------------------------------------------------
 INSERT INTO stock_info (stock_code, stock_name, stock_type, previous_close, latest_price, open_price, trade_status, notice) VALUES
-  ('600519', '贵州茅台', 'NORMAL', 1662.00, 1662.00, 1662.00, 'TRADING', '年度股东大会公告已发布'),
+  ('600519', '贵州茅台', 'NORMAL', 1400.00, 1400.00, 1400.00, 'TRADING', '年度股东大会公告已发布'),
   ('601398', '工商银行', 'NORMAL', 5.82,    5.82,    5.82,    'TRADING', ''),
   ('600036', '招商银行', 'NORMAL', 35.50,   35.50,   35.50,   'TRADING', ''),
   ('000001', '平安银行', 'NORMAL', 12.30,   12.30,   12.30,   'TRADING', ''),

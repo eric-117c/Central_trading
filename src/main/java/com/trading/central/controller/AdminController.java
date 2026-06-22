@@ -217,4 +217,61 @@ public class AdminController {
         res.put("data", snapshot);
         return ResponseEntity.ok(res);
     }
+
+    @PostMapping("/stocks")
+    public ResponseEntity<Map<String, Object>> addStock(@RequestBody Map<String, Object> body) {
+        String stockCode = body.containsKey("stockCode") ? body.get("stockCode").toString().trim() : null;
+        String stockName = body.containsKey("stockName") ? body.get("stockName").toString().trim() : null;
+        String stockType = body.containsKey("stockType") ? body.get("stockType").toString().trim() : "NORMAL";
+        Object previousCloseObj = body.get("previousClose");
+        String notice = body.containsKey("notice") ? body.get("notice").toString().trim() : "";
+
+        if (stockCode == null || stockCode.isEmpty() || stockName == null || stockName.isEmpty() || previousCloseObj == null) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "stockCode、stockName、previousClose 为必填项");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        if (!stockCode.matches("^\\d{6}$")) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "股票代码必须为6位数字");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        if (!"NORMAL".equals(stockType) && !"ST".equals(stockType)) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "stockType 必须为 NORMAL 或 ST");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        BigDecimal previousClose;
+        try {
+            previousClose = new BigDecimal(previousCloseObj.toString());
+            if (previousClose.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new NumberFormatException();
+            }
+        } catch (NumberFormatException e) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "previousClose 必须为大于0的数值");
+            return ResponseEntity.badRequest().body(res);
+        }
+
+        if (stockService.stockExists(stockCode)) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("success", false);
+            res.put("message", "股票 " + stockCode + " 已存在");
+            return ResponseEntity.status(409).body(res);
+        }
+
+        stockService.addStock(stockCode, stockName, stockType, previousClose, notice);
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", true);
+        res.put("message", "股票入库成功: " + stockCode + " " + stockName);
+        return ResponseEntity.ok(res);
+    }
 }

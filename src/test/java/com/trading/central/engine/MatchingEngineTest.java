@@ -1,5 +1,6 @@
 package com.trading.central.engine;
 
+import com.trading.central.dashboard.TradingEventBroadcaster;
 import com.trading.central.model.OrderEntry;
 import com.trading.central.util.Constants.OrderStatus;
 import com.trading.central.util.Constants.Side;
@@ -31,14 +32,16 @@ class MatchingEngineTest {
 
     private MatchingEngine engine;
     private PriceLimiter mockLimiter;
+    private TradingEventBroadcaster mockBroadcaster;
 
     @BeforeEach
     void setUp() {
         mockLimiter = mock(PriceLimiter.class);
+        mockBroadcaster = mock(TradingEventBroadcaster.class);
         // 默认：不做涨跌停钳制
         when(mockLimiter.clampTradePrice(anyString(), any(BigDecimal.class)))
                 .thenAnswer(invocation -> invocation.getArgument(1));
-        engine = new MatchingEngine(mockLimiter);
+        engine = new MatchingEngine(mockLimiter, mockBroadcaster);
     }
 
     // ================================================================

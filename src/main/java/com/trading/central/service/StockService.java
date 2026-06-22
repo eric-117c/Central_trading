@@ -104,4 +104,17 @@ public class StockService {
         jdbcTemplate.update("UPDATE stock_info SET trade_status = ?, update_time = NOW() WHERE stock_code = ?", status, stockCode);
         log.info("[StockService] {} 交易状态更新为 {}", stockCode, status);
     }
+
+    public boolean stockExists(String stockCode) {
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM stock_info WHERE stock_code = ?", Integer.class, stockCode);
+        return count != null && count > 0;
+    }
+
+    public void addStock(String stockCode, String stockName, String stockType, BigDecimal previousClose, String notice) {
+        jdbcTemplate.update(
+            "INSERT INTO stock_info (stock_code, stock_name, stock_type, previous_close, latest_price, open_price, trade_status, notice) VALUES (?, ?, ?, ?, ?, ?, 'TRADING', ?)",
+            stockCode, stockName, stockType, previousClose, previousClose, previousClose, notice
+        );
+        log.info("[StockService] 股票入库成功: {} {}", stockCode, stockName);
+    }
 }

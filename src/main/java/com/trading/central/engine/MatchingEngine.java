@@ -1,5 +1,6 @@
 package com.trading.central.engine;
 
+import com.trading.central.dashboard.TradingEventBroadcaster;
 import com.trading.central.model.OrderEntry;
 import com.trading.central.util.Constants.OrderStatus;
 import com.trading.central.util.Constants.Side;
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MatchingEngine {
 
     private final PriceLimiter priceLimiter;
+    private final TradingEventBroadcaster broadcaster;
 
     // 连续竞价订单簿（per stock）
     private final Map<String, OrderBook> orderBooks = new ConcurrentHashMap<>();
@@ -32,8 +34,9 @@ public class MatchingEngine {
     // 当前交易阶段
     private volatile AuctionPhase currentPhase = AuctionPhase.CONTINUOUS_AUCTION;
 
-    public MatchingEngine(PriceLimiter priceLimiter) {
+    public MatchingEngine(PriceLimiter priceLimiter, TradingEventBroadcaster broadcaster) {
         this.priceLimiter = priceLimiter;
+        this.broadcaster = broadcaster;
     }
 
     // ================================================================
@@ -53,11 +56,13 @@ public class MatchingEngine {
         this.currentPhase = AuctionPhase.CALL_AUCTION;
         callAuctionBooks.clear();
         log.info("[撮合引擎] 进入集合竞价阶段");
+        broadcaster.system("进入集合竞价阶段");
     }
 
     public void enterContinuousAuction() {
         this.currentPhase = AuctionPhase.CONTINUOUS_AUCTION;
         log.info("[撮合引擎] 进入连续竞价阶段");
+        broadcaster.system("进入连续竞价阶段");
     }
 
     // ================================================================

@@ -12,4 +12,7 @@ public class TradeReportMsg {
     private BigDecimal tradePrice;
     private Integer tradeQuantity;
     private String tradeTime;
+
+    private String buyerName;
+    private String sellerName;
 }
