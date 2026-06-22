@@ -115,8 +115,9 @@ public class AccountService {
 
     public String getAccountName(String accountId) {
         if (isMock) {
+            // Mock模式下直接返回账户ID后4位作为名称
             String suffix = accountId.length() >= 4 ? accountId.substring(accountId.length() - 4) : accountId;
-            return "user" + suffix;
+            return "用户" + suffix;
         }
 
         String url = apiBase + "/api/fund-accounts/" + accountId + "/name";
@@ -133,8 +134,9 @@ public class AccountService {
                 }
             }
         } catch (Exception e) {
-            log.warn("[AccountService] get account name failed: {}, using default", accountId, e);
+            log.warn("[AccountService] 获取账户名称失败: {}，使用默认值", accountId, e);
         }
-        return "user" + (accountId.length() >= 4 ? accountId.substring(accountId.length() - 4) : accountId);
+        // 查询失败时返回账户ID本身作为降级方案
+        return "用户" + (accountId.length() >= 4 ? accountId.substring(accountId.length() - 4) : accountId);
     }
 }

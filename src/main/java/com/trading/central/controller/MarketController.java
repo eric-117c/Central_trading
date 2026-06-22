@@ -32,15 +32,21 @@ public class MarketController {
         this.accountService = accountService;
     }
 
+    /**
+     * 获取股票盘口快照 + 近期成交流水
+     * 客户端每 5 秒调用一次
+     */
     @GetMapping("/snapshot/{stockCode}")
     public Map<String, Object> getSnapshot(@PathVariable String stockCode) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("stockCode", stockCode);
         response.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
+        // 1. 获取股票名称
         StockInfo info = stockService.getStockInfo(stockCode);
         response.put("stockName", info != null ? info.getStockName() : "");
 
+        // 2. 获取盘口快照（4个字段：bidPrice, bidVolume, askPrice, askVolume）
         BigDecimal bidPrice = null;
         Integer bidVolume = null;
         BigDecimal askPrice = null;
@@ -55,18 +61,18 @@ public class MarketController {
                 List<OrderEntry> sellOrders = (List<OrderEntry>) bookSnapshot.get("sellOrders");
 
                 if (buyOrders != null && !buyOrders.isEmpty()) {
-                    OrderEntry bestBid = buyOrders.get(0);
+                    OrderEntry bestBid = buyOrders.get(0);  // 假设已按价格降序排列
                     bidPrice = bestBid.getPrice();
                     bidVolume = bestBid.getRemainingQuantity();
                 }
                 if (sellOrders != null && !sellOrders.isEmpty()) {
-                    OrderEntry bestAsk = sellOrders.get(0);
+                    OrderEntry bestAsk = sellOrders.get(0); // 假设已按价格升序排列
                     askPrice = bestAsk.getPrice();
                     askVolume = bestAsk.getRemainingQuantity();
                 }
             }
         } catch (Exception e) {
-            log.warn("[MarketController] getBookSnapshot failed: {}", stockCode, e);
+            log.warn("[MarketController] 获取盘口数据失败: {}", stockCode, e);
         }
 
         response.put("bidPrice", bidPrice);
@@ -74,6 +80,7 @@ public class MarketController {
         response.put("askPrice", askPrice);
         response.put("askVolume", askVolume);
 
+        // 3. 获取近期成交流水（最近 10 条，约对应 5 秒轮询周期）
         List<Map<String, Object>> recentTrades = new ArrayList<>();
         try {
             String sql = "SELECT trade_no, buyer_order_id, seller_order_id, stock_code, trade_price, trade_quantity, trade_time " +
@@ -83,6 +90,7 @@ public class MarketController {
             for (Map<String, Object> row : rows) {
                 Map<String, Object> trade = new LinkedHashMap<>();
                 trade.put("tradeNo", row.get("trade_no"));
+                // 用名称替代 ID
                 String buyerId = row.get("buyer_order_id").toString();
                 String sellerId = row.get("seller_order_id").toString();
                 trade.put("buyerName", accountService.getAccountName(buyerId));
@@ -94,9 +102,10 @@ public class MarketController {
                 recentTrades.add(trade);
             }
         } catch (Exception e) {
-            log.warn("[MarketController] query trade_record failed: {}", stockCode, e);
+            log.warn("[MarketController] 获取成交记录失败: {}", stockCode, e);
         }
 
+        // 无成交时返回空数组
         response.put("recentTrades", recentTrades);
 
         return response;
